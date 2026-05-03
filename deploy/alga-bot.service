@@ -1,0 +1,15 @@
+[Unit]
+Description=Alga Telegram Inquiry Bot
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/alga-bot
+ExecStart=/home/ubuntu/alga-bot/.venv/bin/python -m bot.main
+Restart=on-failure
+RestartSec=5
+EnvironmentFile=/home/ubuntu/alga-bot/.env
+
+[Install]
+WantedBy=multi-user.target
