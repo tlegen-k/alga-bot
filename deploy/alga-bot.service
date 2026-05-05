@@ -1,6 +1,6 @@
 [Unit]
 Description=Alga Telegram Inquiry Bot
-After=network.target postgresql.service
+After=network.target
 
 [Service]
 Type=simple
