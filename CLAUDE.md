@@ -1,32 +1,72 @@
 # CLAUDE.md — alga-bot
 
-## Project
-Agency inquiry bot for Alga (alga.world) — Kazakhstan digital agency.
-Collects leads from potential clients via Telegram.
-Runs as a systemd service on Contabo VPS.
+> **For Claude Code (WSL) or any AI coding agent.**
+> Read this file completely before writing any code.
+> All implementation notes and current state go in `STATUS.md` — never in this file.
+
+---
+
+## Absolute rules
+
+1. **Do not modify `CLAUDE.md`.** It is the human-authored source of truth.
+   All agent notes, decisions, and current state go in `STATUS.md`.
+2. **Update `STATUS.md` on every "wrap up".** Before writing the session note.
+3. **No secrets in repo.** All config lives in `.env` — never committed.
+4. **uv only** — never pip, never requirements.txt.
+5. **Kazakh is the default** — all new string keys must have a `kk` value first.
+6. **Never block the event loop** — everything async.
+7. **On DB error: log it, still confirm to user, don't crash.**
+8. **Phase gate:** Do not work on Phase 2 tasks if Phase 1 is not complete.
+   Check `STATUS.md` before starting.
+
+---
+
+## Business context
+
+Telegram inquiry bot for Alga (alga.world) — Kazakhstan digital agency.
+Collects leads from potential clients, saves to PostgreSQL, forwards to admin.
+Primary market: Kazakhstan. Languages: KZ (default), RU, EN.
+
+---
+
+## Current focus
+
+<!-- YOU update this at session start. Paste from Obsidian Agency/Plan.md. -->
+- [ ] Task 1
+- [ ] Task 2
+
+---
 
 ## Stack
-- Python 3.11+ managed with **uv** (pyproject.toml, never requirements.txt)
-- aiogram 3.x (async Telegram framework)
-- PostgreSQL — leads table (name, phone, service_interest, message, lang, created_at)
-- python-dotenv — env vars
-- asyncpg — async PG driver
+
+| Layer | Tech |
+|---|---|
+| Language | Python 3.11+ via **uv** |
+| Framework | aiogram 3.x (async Telegram) |
+| DB | PostgreSQL via asyncpg |
+| Config | python-dotenv |
+| Infra | Contabo VPS · systemd |
+
+---
 
 ## Package management
-- **Always use uv.** Never requirements.txt, never pip directly.
-- Add deps: `uv add aiogram asyncpg python-dotenv`
+
+- Add deps: `uv add <package>`
 - Run: `uv run python -m bot.main`
 - Sync: `uv sync`
 - Lock file: `uv.lock` (commit this)
 
+---
+
 ## Repo structure
+
 ```
 alga-bot/
-├── CLAUDE.md             ← you are here
-├── STATUS.md             ← current build state (agent-maintained)
+├── CLAUDE.md             ← you are here — never modify
+├── STATUS.md             ← agent-maintained — update on every wrap up
 ├── pyproject.toml        ← deps + project metadata (uv)
 ├── uv.lock               ← committed lockfile
-├── .env.example          ← template, never commit .env
+├── .env                  ← never commit
 ├── bot/
 │   ├── main.py           ← entry point, bot init
 │   ├── config.py         ← load env vars
@@ -44,64 +84,111 @@ alga-bot/
     └── alga-bot.service  ← systemd unit file
 ```
 
+---
+
 ## Env vars (.env)
+
 ```
 BOT_TOKEN=
 ADMIN_CHAT_ID=       # your Telegram ID — new leads forwarded here
 DATABASE_URL=postgresql+asyncpg://user:pass@localhost/alga
 ```
 
+---
+
 ## Internationalisation
+
 - **Default language: Kazakh (kk)**
-- Supported now: `kk`, `ru`, `en`
-- Architecture: `bot/i18n/` — one file per language, dict of string keys
+- Supported: `kk`, `ru`, `en`
 - `get_text(key, lang)` falls back to `kk` if key missing in requested lang
-- User's chosen language stored in FSM state and saved to DB with the lead
-- Language selector shown at `/start` as inline keyboard before any questions
-- Future languages (uz, ky, etc.) = add a new file in `i18n/`, zero other changes
+- Language selector shown at `/start` as inline keyboard
+- Future languages (uz, ky) = add a new file in `i18n/`, zero other changes
+
+---
 
 ## Bot conversation flow
+
 ```
 /start
   → Language picker (inline keyboard): 🇰🇿 Қазақша · 🇷🇺 Русский · 🇬🇧 English
-  → All subsequent messages in chosen language
   → Q1: Name
   → Q2: Phone
-  → Q3: Service interest (inline keyboard: Website / Telegram bot / Automation / Other)
+  → Q3: Service interest (Website / Telegram bot / Automation / Other)
   → Q4: Brief description of task
   → Confirmation message to user
-  → Save lead to PostgreSQL (with lang field)
+  → Save lead to PostgreSQL
   → Forward formatted lead summary to ADMIN_CHAT_ID
 ```
 
-## Absolute rules
-- **uv only** — never pip, never requirements.txt
-- Use aiogram 3.x FSM (MemoryStorage for now, Redis later)
-- Kazakh is the default — all new string keys must have a `kk` value first
-- Never block the event loop — everything async
-- Validate phone loosely (accept any string, don't reject users)
-- On DB error: log it, still confirm to user, don't crash
+---
 
-## Deployment (VPS)
-- VPS: Contabo, domain alga.world
-- Copy `deploy/alga-bot.service` to `/etc/systemd/system/`
-- `systemctl enable alga-bot && systemctl start alga-bot`
-- Logs: `journalctl -u alga-bot -f`
-- Run bot via: `uv run python -m bot.main`
+## Phases
 
-## Wrap up protocol
-When I say "wrap up", you must:
-1. Update STATUS.md — what works, what's broken, current phase, next task
-2. Print a session summary I can paste into Obsidian:
-   - What was built
-   - Decisions made (with reasoning)
-   - Blockers / open questions
-   - Exact first task for next session
+### Phase 1 — Bot live on VPS with Postgres
+**Stop condition:** Bot running on VPS, leads saved to DB, admin forwarding confirmed.
 
-## Current focus
-<!-- Paste today's tasks here before starting -->
-- Build the inquiry bot: /start handler + FSM conversation flow
-- i18n system: kk (default), ru, en
-- Save leads to PostgreSQL (including lang field)
-- Forward new lead to admin via Telegram message
-- Generate systemd unit file for VPS deployment
+- [x] FSM conversation flow (all languages)
+- [x] i18n: kk (default), ru, en
+- [x] PostgreSQL lead save
+- [x] Admin forwarding via Telegram
+- [x] systemd service on Contabo VPS
+- [x] Postgres on VPS — leads persisted
+
+### Phase 2 — Admin tooling + resilience
+**Stop condition:** Admin can view leads in Telegram. Bot survives restarts mid-conversation.
+*Do not start until Phase 1 stop condition is met.*
+
+- [ ] `/leads` admin command — view last 10 leads from Telegram
+- [ ] Redis FSM storage (survive bot restarts mid-conversation)
+
+### Phase 3 — Polish + monitoring
+*Do not start until Phase 2 stop condition is met.*
+
+- [ ] Log rotation
+- [ ] External monitoring / alerting
+- [ ] Additional languages (uz, ky)
+
+---
+
+## Deployment
+
+```bash
+# On VPS
+cd /home/deploy/alga-bot && git pull origin main
+sudo systemctl restart alga-bot
+journalctl -u alga-bot -f
+```
+
+VPS: Contabo · user: `deploy` · path: `/home/deploy/alga-bot`
+
+---
+
+## Obsidian vault
+
+- Vault (WSL): `/mnt/c/Vaults/second-brain`
+- Session notes: `Agency/Sessions/YYYY-MM-DD-alga-bot.md`
+- Decisions log: `Agency/Decisions.md`
+- Master plan: `Agency/Plan.md`
+
+---
+
+## End of session protocol
+
+When the user says **"wrap up"**, do in this exact order:
+
+1. **Update `STATUS.md`** — fill current phase, what works, open issues, next task.
+
+2. **Write the session note** directly into the Obsidian vault:
+   `/mnt/c/Vaults/second-brain/Agency/Sessions/YYYY-MM-DD-alga-bot.md`
+   Sections to fill (no placeholders — write actual content):
+   - ✅ Done
+   - 🧠 Decisions + reasoning
+   - 🪲 Issues & blockers
+   - 🔜 Next session (exact first task)
+
+3. **Run the logger:**
+   ```bash
+   bash ~/scripts/log-session.sh
+   ```
+
+4. **Print next session's first task** to the terminal.
