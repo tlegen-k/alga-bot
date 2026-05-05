@@ -1,4 +1,5 @@
 import logging
+from bot.config import DATABASE_URL
 from bot.db.connection import get_pool
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,9 @@ async def init_db() -> None:
 
 
 async def save_lead(name: str, phone: str, service: str, message: str, lang: str) -> None:
+    if not DATABASE_URL:
+        logger.info("DATABASE_URL not set, skipping lead save")
+        return
     try:
         pool = await get_pool()
         await pool.execute(

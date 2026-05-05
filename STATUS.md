@@ -1,34 +1,35 @@
 # STATUS.md — alga-bot
 
 ## Phase
-Phase 1 / Week 2 — Bot built and tested locally
+Phase 2 — Bot deployed to VPS, Postgres live on both local and VPS
 
 ## Current state
-🟡 Working — bot functional, DB pending
+🟢 Fully working — bot running, leads saved to PostgreSQL
 
 ## What works
 - `/start` → language picker (kk/ru/en) → name → phone → service → task → thank you
-- Admin lead summary forwarded to ADMIN_CHAT_ID via Telegram (confirmed working)
-- i18n system: kk (default), ru, en — full string coverage
-- Graceful DB skip: if DATABASE_URL empty, bot runs fine, logs warning on lead save
-- systemd unit file ready for VPS deploy
-- uv project: pyproject.toml + uv.lock committed
+- Admin lead summary forwarded to ADMIN_CHAT_ID via Telegram ✓
+- i18n system: kk (default), ru, en — full string coverage ✓
+- Leads saved to PostgreSQL (both local and VPS) ✓
+- Graceful DB skip: if DATABASE_URL empty, bot runs, logs warning ✓
+- systemd service: auto-starts on reboot, restarts on crash ✓
+- Bot running as systemd service on Contabo VPS (user: deploy) ✓
+- Bot username: @AlgaWorldBot ✓
 
-## What's broken / in progress
-- DB save fails (no Postgres running locally) — expected, non-blocking
-- DATABASE_URL not set in .env
+## Infrastructure
+- VPS: Contabo, user: deploy, path: /home/deploy/alga-bot
+- Postgres: local (WSL2) + VPS, DB: alga, user: algabot
+- systemd: alga-bot.service, enabled + running
+- Logs: `journalctl -u alga-bot -f`
 
 ## Open issues
-- Need Postgres: local or on Contabo VPS
-- Set DATABASE_URL=postgresql+asyncpg://user:pass@host/alga in .env
-- On VPS: copy deploy/alga-bot.service to /etc/systemd/system/, set correct User= and WorkingDirectory=
+- None blocking
 
-## Next task
-1. Set up PostgreSQL (local or VPS)
-2. Add DATABASE_URL to .env
-3. Run `uv run python -m bot.main` — init_db() auto-creates leads table
-4. Test full flow with DB — verify lead saved in DB
-5. Deploy to Contabo: scp project, copy service file, systemctl enable + start
+## Next tasks (Phase 3)
+1. Add /leads admin command — view recent leads from Telegram
+2. Switch FSM storage from MemoryStorage to Redis (survive restarts)
+3. Add more languages (uz, ky) if needed
+4. Set up log rotation or external monitoring
 
 ## Decisions log
 - uv for package management — pyproject.toml, no requirements.txt
@@ -37,6 +38,6 @@ Phase 1 / Week 2 — Bot built and tested locally
 - asyncpg for DB — consistent async pattern
 - Kazakh (kk) as default language — i18n-first from day one
 - i18n via simple dict files per language — no external lib needed at this scale
-- Lead forwarded to ADMIN_CHAT_ID as formatted message (no n8n, keep simple)
-- DB skip when DATABASE_URL empty — allows local dev/testing without Postgres
-- VPS: Contabo, bot username: @AlgaWorldBot
+- Lead forwarded to ADMIN_CHAT_ID as formatted message
+- DB skip when DATABASE_URL empty — allows local dev without Postgres
+- PostgreSQL on VPS (not SQLite) — already had asyncpg, production-ready
